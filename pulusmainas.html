@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>筆算形式計算プリント作成ツール</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        body {
+            font-family: 'MS Gothic', 'MS Mincho', monospace;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-family: 'MS Gothic', 'MS Mincho', sans-serif;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        select, input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 4px;
+            display: block;
+            margin: 20px auto;
+            width: 200px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #printPreview {
+            margin-top: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            background-color: white;
+            display: none;
+            font-family: 'MS Gothic', 'MS Mincho', monospace;
+            width: 210mm;
+            box-sizing: border-box;
+            margin: 0 auto;
+        }
+        .page {
+            width: 210mm;
+            height: 297mm;
+            padding: 10mm;
+            box-sizing: border-box;
+            page-break-after: always;
+            background-color: white;
+        }
+        .calculation-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(4, auto);
+            gap: 50px 40px;
+            padding: 10px;
+            margin-top: 20px;
+        }
+        .calculation-item {
+            margin-bottom: 30px;
+        }
+        .problem-number {
+            font-weight: normal;
+            margin-bottom: 5px;
+            font-size: 18px;
+            color: #666;
+            display: inline-block;
+        }
+        .calculation-problem {
+            font-family: 'MS Gothic', monospace;
+            white-space: pre;
+            font-size: 36px;
+            line-height: 1.4;
+            letter-spacing: 4px;
+        }
+        .num1 {
+            color: #000;
+            margin-bottom: 5px;
+            padding-left: 0.7em;
+        }
+        .num2 {
+            color: #000;
+            margin-bottom: 0;
+        }
+        .operator {
+            color: #000;
+            margin-right: 5px;
+        }
+        .underline {
+            color: #000;
+            font-weight: bold;
+            border-top: 2px solid #000;
+            margin-top: 2px;
+            padding-top: 0;
+            height: 2px;
+            line-height: 0;
+            margin-bottom: 40px;
+        }
+        .answer {
+            color: #0000ff;
+            margin-top: 5px;
+            font-size: 24px;
+        }
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #printPreview, #printPreview * {
+                visibility: visible;
+            }
+            #printPreview {
+                position: absolute;
+                left: 0;
+                top: 0;
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+            .page {
+                width: 210mm;
+                height: 297mm;
+                padding: 10mm;
+                margin: 0;
+                box-sizing: border-box;
+                page-break-after: always;
+            }
+            .no-print {
+                display: none;
+            }
+            .calculation-grid {
+                gap: 50px 40px;
+            }
+            .calculation-problem {
+                font-size: 36px;
+            }
+            .underline {
+                margin-bottom: 40px;
+            }
+            .answer {
+                color: #0000ff !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>筆算形式計算プリント作成ツール</h1>
+        
+        <div class="form-group">
+            <label for="operationType">計算の種類</label>
+            <select id="operationType">
+                <option value="addition">足し算</option>
+                <option value="subtraction">引き算</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="upperDigitCount">上段の桁数</label>
+            <select id="upperDigitCount">
+                <option value="1">1桁</option>
+                <option value="2" selected>2桁</option>
+                <option value="3">3桁</option>
+                <option value="4">4桁</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="lowerDigitCount">下段の桁数</label>
+            <select id="lowerDigitCount">
+                <option value="1">1桁</option>
+                <option value="2" selected>2桁</option>
+                <option value="3">3桁</option>
+                <option value="4">4桁</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="fontSize">フォントサイズ</label>
+            <select id="fontSize">
+                <option value="28">小</option>
+                <option value="32">中</option>
+                <option value="36" selected>大</option>
+                <option value="40">特大</option>
+            </select>
+        </div>
+        
+        <button id="generateButton">プリントを作成</button>
+        <button id="downloadPdfButton" style="display: none;">PDFをダウンロード</button>
+        
+        <div id="printPreview">
+            <div class="page">
+                <div id="calculationContainer" class="calculation-grid"></div>
+            </div>
+            <div class="page">
+                <div id="answerContainer" class="calculation-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const generateButton = document.getElementById('generateButton');
+            const downloadPdfButton = document.getElementById('downloadPdfButton');
+            const printPreview = document.getElementById('printPreview');
+            const calculationContainer = document.getElementById('calculationContainer');
+            const fontSizeSelect = document.getElementById('fontSize');
+            
+            generateButton.addEventListener('click', generatePrint);
+            downloadPdfButton.addEventListener('click', downloadPdf);
+            
+            function generatePrint() {
+                const operationType = document.getElementById('operationType').value;
+                const upperDigitCount = parseInt(document.getElementById('upperDigitCount').value);
+                const lowerDigitCount = parseInt(document.getElementById('lowerDigitCount').value);
+                const problemCount = 12;
+                const fontSize = parseInt(fontSizeSelect.value);
+                
+                document.querySelectorAll('.calculation-problem').forEach(el => {
+                    el.style.fontSize = `${fontSize}px`;
+                });
+                
+                calculationContainer.innerHTML = '';
+                const answerContainer = document.getElementById('answerContainer');
+                answerContainer.innerHTML = '';
+                
+                const columns = 3;
+                const rows = 4;
+                
+                const problemNumbers = Array.from({ length: problemCount }, (_, i) => i + 1);
+                
+                const grid = Array.from({ length: columns }, () => []);
+                
+                for (let j = 0; j < columns; j++) {
+                    for (let i = 0; i < rows; i++) {
+                        const index = j * rows + i;
+                        if (index < problemCount) {
+                            grid[j].push(problemNumbers[index]);
+                        }
+                    }
+                }
+                
+                for (let col = 0; col < columns; col++) {
+                    for (let problemIndex of grid[col]) {
+                        const problem = generateProblem(operationType, upperDigitCount, lowerDigitCount);
+                        
+                        const calculationItem = document.createElement('div');
+                        calculationItem.className = 'calculation-item';
+                        
+                        const problemNumber = document.createElement('span');
+                        problemNumber.className = 'problem-number';
+                        problemNumber.textContent = `(${problemIndex}) `;
+                        calculationItem.appendChild(problemNumber);
+                        
+                        const calculationProblem = document.createElement('div');
+                        calculationProblem.className = 'calculation-problem';
+                        calculationProblem.style.fontSize = `${fontSize}px`;
+                        calculationProblem.innerHTML = formatCalculationHTML(problem.num1, problem.num2, operationType);
+                        calculationItem.appendChild(calculationProblem);
+                        
+                        calculationContainer.appendChild(calculationItem);
+
+                        const answerItem = document.createElement('div');
+                        answerItem.className = 'calculation-item';
+                        
+                        const answerNumber = document.createElement('span');
+                        answerNumber.className = 'problem-number';
+                        answerNumber.textContent = `(${problemIndex}) `;
+                        answerItem.appendChild(answerNumber);
+                        
+                        const answer = document.createElement('div');
+                        answer.className = 'calculation-problem';
+                        answer.style.fontSize = `${fontSize}px`;
+
+                        const result = operationType === 'addition' 
+                            ? problem.num1 + problem.num2 
+                            : problem.num1 - problem.num2;
+                        
+                        answer.innerHTML = `<div class="answer">${result}</div>`;
+                        answerItem.appendChild(answer);
+                        
+                        answerContainer.appendChild(answerItem);
+                    }
+                }
+                
+                printPreview.style.display = 'block';
+                downloadPdfButton.style.display = 'block';
+                
+                calculationContainer.style.gridTemplateColumns = 'repeat(3, 1fr)';
+                calculationContainer.style.gridTemplateRows = 'repeat(4, auto)';
+                answerContainer.style.gridTemplateColumns = 'repeat(3, 1fr)';
+                answerContainer.style.gridTemplateRows = 'repeat(4, auto)';
+            }
+            
+            function generateProblem(operationType, upperDigitCount, lowerDigitCount) {
+                const upperMax = Math.pow(10, upperDigitCount) - 1;
+                const upperMin = Math.pow(10, upperDigitCount - 1);
+                const lowerMax = Math.pow(10, lowerDigitCount) - 1;
+                const lowerMin = Math.pow(10, lowerDigitCount - 1);
+                
+                let num1, num2;
+                
+                if (operationType === 'addition') {
+                    num1 = Math.floor(Math.random() * (upperMax - upperMin + 1)) + upperMin;
+                    num2 = Math.floor(Math.random() * (lowerMax - lowerMin + 1)) + lowerMin;
+                } else {
+                    num1 = Math.floor(Math.random() * (upperMax - upperMin + 1)) + upperMin;
+                    
+                    if (upperDigitCount >= lowerDigitCount) {
+                        num2 = Math.floor(Math.random() * (Math.min(num1, lowerMax) - lowerMin + 1)) + lowerMin;
+                    } else {
+                        num2 = Math.floor(Math.random() * (num1 - 1)) + 1;
+                    }
+                    
+                    if (Math.random() > 0.5) {
+                        const num1Str = num1.toString();
+                        const num2Str = num2.toString();
+                        for (let i = num2Str.length - 1; i >= 0; i--) {
+                            const num1Index = num1Str.length - (num2Str.length - i);
+                            if (num1Index >= 0 && parseInt(num2Str[i]) > parseInt(num1Str[num1Index]) && Math.random() > 0.3) {
+                                try {
+                                    const newDigit = parseInt(num2Str[i]) + Math.floor(Math.random() * 5) + 1;
+                                    if (newDigit <= 9) {
+                                        const newNum2Parts = num2Str.split('');
+                                        newNum2Parts[i] = newDigit.toString();
+                                        const newNum2 = parseInt(newNum2Parts.join(''));
+                                        if (newNum2 < num1) {
+                                            num2 = newNum2;
+                                            break;
+                                        }
+                                    }
+                                } catch (e) {
+                                    console.error("桁借り調整エラー:", e);
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                return { num1, num2 };
+            }
+            
+            function formatCalculationHTML(num1, num2, operationType) {
+                const num1Str = num1.toString();
+                const num2Str = num2.toString();
+                const maxLength = Math.max(num1Str.length, num2Str.length);
+                
+                let html = '';
+                
+                html += '<div class="num1">';
+                for (let i = 0; i < maxLength - num1Str.length; i++) {
+                    html += '&nbsp;&nbsp;';
+                }
+                for (let i = 0; i < num1Str.length; i++) {
+                    html += '<span style="color: #' + getDigitColor(i) + ';">' + num1Str[i] + '</span>';
+                    if (i < num1Str.length - 1) {
+                        html += '&nbsp;';
+                    }
+                }
+                html += '</div>';
+                
+                const operator = operationType === 'addition' ? '+' : '-';
+                html += '<div class="num2">';
+                html += '<span class="operator">' + operator + '</span>';
+                for (let i = 0; i < maxLength - num2Str.length; i++) {
+                    html += '&nbsp;&nbsp;';
+                }
+                for (let i = 0; i < num2Str.length; i++) {
+                    html += '<span style="color: #' + getDigitColor(i) + ';">' + num2Str[i] + '</span>';
+                    if (i < num2Str.length - 1) {
+                        html += '&nbsp;';
+                    }
+                }
+                html += '</div>';
+                
+                html += '<div class="underline">';
+                html += '<hr style="border: none; border-top: 2px solid #000; margin: 0; padding: 0;">';
+                html += '</div>';
+                
+                return html;
+            }
+            
+            function getDigitColor(index) {
+                const colors = ['000000', '000000', '000000', '000000'];
+                return colors[index % colors.length];
+            }
+            
+            function downloadPdf() {
+                const { jsPDF } = window.jspdf;
+                
+                html2canvas(printPreview, {
+                    scale: 2,
+                    useCORS: true,
+                    logging: false
+                }).then(canvas => {
+                    const imgData = canvas.toDataURL('image/png');
+                    const pdf = new jsPDF('p', 'mm', 'a4');
+                    const imgWidth = 210;
+                    const imgHeight = canvas.height * imgWidth / canvas.width;
+                    
+                    pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+                    
+                    const fileName = `計算プリント_${new Date().toLocaleDateString().replace(/\//g, '-')}.pdf`;
+                    pdf.save(fileName);
+                    
+                    alert(`PDFファイル「${fileName}」がダウンロードされました。`);
+                });
+            }
+        });
+    </script>
+</body>
+</html> 
